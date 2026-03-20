@@ -4,6 +4,8 @@ A lightweight, production-ready GeoIP database optimized for quick IP lookups. T
 
 **Weekly automated builds** with the latest GeoIP data.
 
+> **Fork of** [daijro/geoip-all-in-one](https://github.com/daijro/geoip-all-in-one) - optimized for Country+ASN+ORG only (lite profile)
+
 ---
 
 ## Features
@@ -21,14 +23,14 @@ A lightweight, production-ready GeoIP database optimized for quick IP lookups. T
 
 ### Download
 
-Get the latest `country.mmdb` from [Releases](../../releases).
+Get the latest `Country.mmdb` from [Releases](../../releases).
 
 ### Usage
 
 ```python
 import maxminddb
 
-with maxminddb.open_database('country.mmdb') as reader:
+with maxminddb.open_database('Country.mmdb') as reader:
     data = reader.get('99.109.53.30')
     print(data)
     # Output:
@@ -116,7 +118,7 @@ make build
 
 ### Output
 
-- `country.mmdb` - Final database file (~18MB)
+- `Country.mmdb` - Final database file (~18MB)
 - `merged_ipv4.tsv` - Intermediate merged data
 - `merged_ipv6.tsv` - Intermediate merged data
 

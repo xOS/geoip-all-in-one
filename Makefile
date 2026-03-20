@@ -5,7 +5,7 @@ SOURCES := sources.yaml
 
 IPV4_MERGED := merged_ipv4.tsv
 IPV6_MERGED := merged_ipv6.tsv
-COUNTRY_MMDB := country.mmdb
+COUNTRY_MMDB := Country.mmdb
 
 DATA_DIR := data
 IPV4_DIR := $(DATA_DIR)/ipv4

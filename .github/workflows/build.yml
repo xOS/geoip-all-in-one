@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    name: Build country.mmdb
+    name: Build Country.mmdb
     runs-on: ubuntu-latest
 
     steps:
@@ -48,13 +48,13 @@ jobs:
 
       - name: Verify MMDB
         run: |
-          file country.mmdb
-          ls -lh country.mmdb
+          file Country.mmdb
+          ls -lh Country.mmdb
 
       - name: Get build metadata
         id: metadata
         run: |
-          SIZE_BYTES=$(stat -c%s country.mmdb)
+          SIZE_BYTES=$(stat -c%s Country.mmdb)
           SIZE_MB=$(echo "scale=2; $SIZE_BYTES / 1048576" | bc)
           BUILD_DATE=$(date -u +'%Y-%m-%d')
           BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -107,7 +107,7 @@ jobs:
             **Usage:**
             ```python
             import maxminddb
-            with maxminddb.open_database('country.mmdb') as reader:
+            with maxminddb.open_database('Country.mmdb') as reader:
                 data = reader.get('99.100.2.22')
                 print(data)
                 # Output: {
@@ -116,7 +116,7 @@ jobs:
                 #     'autonomous_system_organization': 'ATT-INTERNET4'
                 # }
             ```
-          files: country.mmdb
+          files: Country.mmdb
           draft: false
           prerelease: false
 
@@ -124,6 +124,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: country-mmdb
-          path: country.mmdb
+          path: Country.mmdb
           retention-days: 30
           if-no-files-found: error
