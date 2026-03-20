@@ -21,6 +21,8 @@ latlong:
 country:
   geo-whois-asn-country:
     format: hex_tsv
+    asn_col: 3
+    org_col: 4
     ipv4: "https://gitlab.com/tdulcet/ip-geolocation-dbs/-/raw/main/geo-whois-asn-country/ipv4.tsv?inline=false"
     ipv6: "https://gitlab.com/tdulcet/ip-geolocation-dbs/-/raw/main/geo-whois-asn-country/ipv6.tsv?inline=false"
   ipinfo-country:
@@ -31,3 +33,9 @@ country:
     format: decimal_csv
     ipv4: "https://raw.githubusercontent.com/sapics/ip-location-db/refs/heads/main/iplocate-country/iplocate-country-ipv4.csv"
     ipv6: "https://raw.githubusercontent.com/sapics/ip-location-db/refs/heads/main/iplocate-country/iplocate-country-ipv6.csv"
+
+asn:
+  iptoasn:
+    format: iptoasn_tsv
+    ipv4: "https://iptoasn.com/data/ip2asn-v4-u32.tsv.gz"
+    ipv6: "https://iptoasn.com/data/ip2asn-v6.tsv.gz"

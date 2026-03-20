@@ -33,6 +33,16 @@ def int_to_hex(n: int) -> str:
     return f"{n:x}"
 
 
+def get_country(data) -> Optional[str]:
+    if data is None:
+        return None
+    if isinstance(data, tuple):
+        return data[0]
+    if isinstance(data, dict):
+        return data.get('country')
+    return data
+
+
 """
 range table
 """
@@ -126,7 +136,9 @@ def load_latlong_tsv(filename: str, lat_col: int, long_col: int, ipv6: bool = Fa
     return table
 
 
-def load_country_tsv(filename: str) -> RangeTable:
+def load_country_tsv(
+    filename: str, asn_col: Optional[int] = None, org_col: Optional[int] = None
+) -> RangeTable:
     table = RangeTable()
     if not os.path.exists(filename):
         return table
@@ -137,7 +149,13 @@ def load_country_tsv(filename: str) -> RangeTable:
                 try:
                     start = hex_to_int(parts[0])
                     end = hex_to_int(parts[1]) + 1
-                    table.add(start, end, parts[2])
+                    country = parts[2]
+                    if asn_col is not None and org_col is not None and len(parts) > max(asn_col, org_col):
+                        asn = parts[asn_col].strip()
+                        org = parts[org_col].strip()
+                        table.add(start, end, {'country': country, 'asn': asn, 'org': org})
+                    else:
+                        table.add(start, end, country)
                 except Exception as e:
                     print(f"Error processing line in {filename}: {e}", file=sys.stderr)
                     pass
@@ -167,6 +185,66 @@ def load_country_csv(filename: str, ipv6: bool = False) -> RangeTable:
                 except Exception as e:
                     print(f"Error processing line in {filename}: {e}", file=sys.stderr)
                     pass
+    table.finalize(os.path.basename(filename))
+    return table
+
+
+def normalize_asn(asn_raw: str) -> str:
+    value = asn_raw.strip()
+    if not value or value in ('0', 'None', 'NA', 'N/A'):
+        return ''
+    return value
+
+
+def normalize_org(org_raw: str) -> str:
+    value = org_raw.strip()
+    if not value or value.lower() in ('not routed', 'none', 'na', 'n/a'):
+        return ''
+    return value
+
+
+def load_iptoasn_tsv(filename: str, ipv6: bool = False) -> RangeTable:
+    """
+    iptoasn format:
+      ipv4: start_u32\tend_u32\tasn\tcountry\torg
+      ipv6: start_ip\tend_ip\tasn\tcountry\torg
+    """
+    table = RangeTable()
+    if not os.path.exists(filename):
+        return table
+
+    import ipaddress
+
+    with open(filename) as f:
+        for line in f:
+            parts = line.strip().split('\t')
+            if len(parts) < 5:
+                continue
+            try:
+                if ipv6:
+                    start = int(ipaddress.ip_address(parts[0]))
+                    end = int(ipaddress.ip_address(parts[1])) + 1
+                else:
+                    start = int(parts[0])
+                    end = int(parts[1]) + 1
+
+                country = parts[3].strip()
+                if country in ('None', 'NA', 'N/A'):
+                    country = ''
+
+                table.add(
+                    start,
+                    end,
+                    {
+                        'country': country,
+                        'asn': normalize_asn(parts[2]),
+                        'org': normalize_org(parts[4]),
+                    },
+                )
+            except Exception as e:
+                print(f"Error processing line in {filename}: {e}", file=sys.stderr)
+                pass
+
     table.finalize(os.path.basename(filename))
     return table
 
@@ -237,7 +315,9 @@ def pick_winner(
     for name, data in all_data.items():
         if data is None:
             continue
-        countries[name] = data[0] if isinstance(data, tuple) else data
+        country = get_country(data)
+        if country is not None:
+            countries[name] = country
 
     if not countries:
         return None
@@ -365,12 +445,30 @@ def main() -> None:
         if fmt == 'decimal_csv':
             country_sources[name] = load_country_csv(filepath, ipv6)
         else:
-            country_sources[name] = load_country_tsv(filepath)
+            asn_col = info.get('asn_col')
+            org_col = info.get('org_col')
+            country_sources[name] = load_country_tsv(filepath, asn_col, org_col)
         print(f"  {name}: {len(country_sources[name])} ranges", file=sys.stderr)
+
+    # load ASN sources (for ASN/ORG metadata)
+    print(f"Loading {ip_version} ASN sources...", file=sys.stderr)
+    asn_sources: dict[str, RangeTable] = {}
+    for name, info in sources.get('asn', {}).items():
+        fmt = info.get('format', 'iptoasn_tsv')
+        ext = 'csv' if fmt == 'decimal_csv' else 'tsv'
+        filepath = os.path.join(data_dir, f"{name}.{ext}")
+        if fmt == 'iptoasn_tsv':
+            asn_sources[name] = load_iptoasn_tsv(filepath, ipv6)
+        else:
+            print(f"  Warning: unsupported ASN format '{fmt}' for {name}", file=sys.stderr)
+            asn_sources[name] = RangeTable()
+        print(f"  {name}: {len(asn_sources[name])} ranges", file=sys.stderr)
 
     # collect all range start/end points across every source
     print("Finding boundary points...", file=sys.stderr)
-    all_tables = list(latlong_sources.values()) + list(country_sources.values())
+    all_tables = list(latlong_sources.values()) + list(country_sources.values()) + list(
+        asn_sources.values()
+    )
     boundary_set: set[int] = set()
     for table in all_tables:
         boundary_set.update(table.boundaries())
@@ -383,6 +481,8 @@ def main() -> None:
     latlong_name_set = set(latlong_sources.keys())
     all_tables_named = [(name, table) for name, table in latlong_sources.items()] + [
         (name, table) for name, table in country_sources.items()
+    ] + [
+        (name, table) for name, table in asn_sources.items()
     ]
 
     total = len(boundaries) - 1
@@ -405,7 +505,29 @@ def main() -> None:
         result = pick_winner(all_data, latlong_name_set, merge_config)
         if result:
             country, lat, lon, _ = result
-            output.append((start, end, country, lat, lon))
+            asn = ''
+            org = ''
+            asn_priority = merge_config.get('asn_priority', ['iptoasn', 'geo-whois-asn-country'])
+
+            # first pass: strict country match to avoid inconsistent country/asn pairing
+            for source_name in asn_priority:
+                source_data = all_data.get(source_name)
+                if isinstance(source_data, dict) and source_data.get('country') == country:
+                    asn = (source_data.get('asn') or '').strip()
+                    org = (source_data.get('org') or '').strip()
+                    break
+
+            # second pass fallback: keep ASN/ORG when source has no country but has ASN/ORG
+            if not asn and not org:
+                for source_name in asn_priority:
+                    source_data = all_data.get(source_name)
+                    if isinstance(source_data, dict):
+                        asn = (source_data.get('asn') or '').strip()
+                        org = (source_data.get('org') or '').strip()
+                        if asn or org:
+                            break
+
+            output.append((start, end, country, lat, lon, asn, org))
 
         if idx % 500000 == 0 and idx > 0:
             print(f"  {idx}/{total} segments...", file=sys.stderr)
@@ -424,8 +546,8 @@ def main() -> None:
     # write final tsv
     print(f"Writing {output_file}...", file=sys.stderr)
     with open(output_file, 'w') as f:
-        for start, end, country, lat, lon in merged:
-            f.write(f"{int_to_hex(start)}\t{int_to_hex(end)}\t{country}\t{lat}\t{lon}\n")
+        for start, end, country, lat, lon, asn, org in merged:
+            f.write(f"{int_to_hex(start)}\t{int_to_hex(end)}\t{country}\t{lat}\t{lon}\t{asn}\t{org}\n")
 
     print(f"Done! {len(merged)} entries written.", file=sys.stderr)
 

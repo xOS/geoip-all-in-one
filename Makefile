@@ -1,13 +1,11 @@
-.PHONY: all clean download download-ipv4 download-ipv6 merge convert ipv4 ipv6 deps
+.PHONY: all clean download download-ipv4 download-ipv6 merge build deps
 
-PYTHON := python3
+PYTHON := $(if $(wildcard .venv/bin/python3),.venv/bin/python3,python3)
 SOURCES := sources.yaml
 
 IPV4_MERGED := merged_ipv4.tsv
 IPV6_MERGED := merged_ipv6.tsv
-IPV4_MMDB := geoip_ipv4.mmdb
-IPV6_MMDB := geoip_ipv6.mmdb
-COMBINED_MMDB := geoip.mmdb
+COUNTRY_MMDB := country.mmdb
 
 DATA_DIR := data
 IPV4_DIR := $(DATA_DIR)/ipv4
@@ -15,7 +13,7 @@ IPV6_DIR := $(DATA_DIR)/ipv6
 IPV4_DONE := $(IPV4_DIR)/.downloaded
 IPV6_DONE := $(IPV6_DIR)/.downloaded
 
-all: $(COMBINED_MMDB) $(IPV4_MMDB) $(IPV6_MMDB)
+all: $(COUNTRY_MMDB)
 
 download: download-ipv4 download-ipv6
 download-ipv4: $(IPV4_DONE)
@@ -39,24 +37,15 @@ $(IPV4_MERGED): $(IPV4_DONE) scripts/merge.py
 $(IPV6_MERGED): $(IPV6_DONE) scripts/merge.py
 	$(PYTHON) scripts/merge.py $(SOURCES) ipv6 $(IPV6_DIR) $@
 
-convert: $(COMBINED_MMDB)
+build: $(COUNTRY_MMDB)
 
-$(IPV4_MMDB): $(IPV4_MERGED) scripts/convert.py
-	$(PYTHON) scripts/convert.py $< $@ 4
-
-$(IPV6_MMDB): $(IPV6_MERGED) scripts/convert.py
-	$(PYTHON) scripts/convert.py $< $@ 6
-
-$(COMBINED_MMDB): $(IPV4_MERGED) $(IPV6_MERGED) scripts/convert.py
+$(COUNTRY_MMDB): $(IPV4_MERGED) $(IPV6_MERGED) scripts/convert.py
 	$(PYTHON) scripts/convert.py $(IPV4_MERGED) $(IPV6_MERGED) $@
-
-ipv4: $(IPV4_MMDB)
-ipv6: $(IPV6_MMDB)
 
 clean:
 	rm -rf $(DATA_DIR)
 	rm -f $(IPV4_MERGED) $(IPV6_MERGED)
-	rm -f $(IPV4_MMDB) $(IPV6_MMDB) $(COMBINED_MMDB)
+	rm -f $(COUNTRY_MMDB)
 
 deps:
-	pip install pyyaml mmdb_writer netaddr tzfpy requests
+	$(PYTHON) -m pip install pyyaml mmdb_writer netaddr requests
