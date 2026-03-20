@@ -71,11 +71,24 @@ jobs:
           RELEASES=$(gh release list --repo "${{ github.repository }}" --limit 100 --json name,createdAt -q '.[3:][].name')
           for release in $RELEASES; do
             echo "Deleting old release: $release"
-            gh release delete "$release" --repo "${{ github.repository }}" --yes || true
+            gh release delete "$release" --repo "${{ github.repository }}" --yes --cleanup-tag || true
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
+
+      - name: Delete same-date release if exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUILD_DATE="${{ steps.metadata.outputs.build_date }}"
+          echo "Checking for existing release: $BUILD_DATE"
+          if gh release view "$BUILD_DATE" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Found existing release, deleting..."
+            gh release delete "$BUILD_DATE" --repo "${{ github.repository }}" --yes --cleanup-tag || true
+            echo "Waiting for deletion to complete..."
+            sleep 2
+          fi
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -117,6 +130,7 @@ jobs:
                 # }
             ```
           files: Country.mmdb
+          overwrite: true
           draft: false
           prerelease: false
 
