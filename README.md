@@ -14,7 +14,7 @@ A lightweight, production-ready GeoIP database optimized for quick IP lookups. T
 - 🌐 **Country Codes**: ISO 3166-1 alpha-2 format
 - 🔢 **ASN Data**: ~95% coverage for IPv4, ~90% for IPv6
 - 🏢 **Organization Names**: Mappings from ASN to organization
-- 📈 **Multi-source Voting**: Combines 6 authoritative sources for accuracy
+- 📈 **Multi-source Voting**: Combines 9 country signals (global + CN route feeds)
 - 🔄 **Automated Updates**: Weekly releases via GitHub Actions
 
 ---
@@ -31,7 +31,7 @@ Get the latest `Country.mmdb` from [Releases](../../releases).
 import maxminddb
 
 with maxminddb.open_database('Country.mmdb') as reader:
-    data = reader.get('99.109.53.30')
+    data = reader.get('99.109.2.2')
     print(data)
     # Output:
     # {
@@ -45,7 +45,7 @@ with maxminddb.open_database('Country.mmdb') as reader:
 
 ## Data Sources
 
-### Country Voting (6 sources)
+### Country Voting (9 sources)
 
 Used to determine the authoritative country for each IP range:
 
@@ -78,6 +78,20 @@ Used to determine the authoritative country for each IP range:
    - Coverage: Global
    - Update frequency: Monthly
    - Source: https://iplocate.io
+
+7. **CN Clang Route Feed** - China route list (IPv4 + IPv6)
+   - Coverage: CN-focused
+   - Source: https://ispip.clang.cn
+
+8. **17mon China IP List** - China route list (IPv4)
+   - Coverage: CN-focused
+   - Source: https://github.com/17mon/china_ip_list
+
+9. **chnroutes2** - China route list (IPv4)
+   - Coverage: CN-focused
+   - Source: https://github.com/misakaio/chnroutes2
+
+Note: 17mon and chnroutes2 currently provide IPv4 route ranges only in this build.
 
 ### ASN/Organization (Primary)
 
@@ -128,8 +142,8 @@ make build
 
 The merge process uses a multi-stage voting algorithm:
 
-1. **Country Voting** (6 sources)
-   - Each IP range receives votes from 6 country sources
+1. **Country Voting** (9 sources)
+   - Each IP range receives votes from 9 country signals
    - Highest vote count wins
    - Tie-breaking: Uses configured priority order
 
