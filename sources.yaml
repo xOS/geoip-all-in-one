@@ -33,6 +33,19 @@ country:
     format: decimal_csv
     ipv4: "https://raw.githubusercontent.com/sapics/ip-location-db/refs/heads/main/iplocate-country/iplocate-country-ipv4.csv"
     ipv6: "https://raw.githubusercontent.com/sapics/ip-location-db/refs/heads/main/iplocate-country/iplocate-country-ipv6.csv"
+  cn-clang:
+    format: cidr_txt
+    country: "CN"
+    ipv4: "https://ispip.clang.cn/all_cn.txt"
+    ipv6: "https://ispip.clang.cn/all_cn_ipv6.txt"
+  cn-17mon:
+    format: cidr_txt
+    country: "CN"
+    ipv4: "https://raw.githubusercontent.com/17mon/china_ip_list/master/china_ip_list.txt"
+  cn-chnroutes2:
+    format: cidr_txt
+    country: "CN"
+    ipv4: "https://raw.githubusercontent.com/misakaio/chnroutes2/refs/heads/master/chnroutes.txt"
 
 asn:
   iptoasn:

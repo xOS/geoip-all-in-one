@@ -20,7 +20,7 @@ def download_file(url, dest_path, decompress_gzip=False):
     """Download file from URL with optional gzip decompression."""
     if not url:
         log(f"⊘ Skipping (no URL): {dest_path}")
-        return -1
+        return 200
 
     log(f"⬇ Downloading: {url}")
     try:
@@ -72,7 +72,13 @@ def main():
         log(f"Downloading {ip_version} {section} sources...")
         for name, info in sources.get(section, {}).items():
             url = info.get(ip_version, '')
-            ext = 'csv' if info.get('format') == 'decimal_csv' else 'tsv'
+            fmt = info.get('format', 'hex_tsv')
+            if fmt == 'decimal_csv':
+                ext = 'csv'
+            elif fmt == 'cidr_txt':
+                ext = 'txt'
+            else:
+                ext = 'tsv'
             dest = os.path.join(output_dir, f"{name}.{ext}")
             decompress_gzip = url.endswith('.gz')
             status = download_file(url, dest, decompress_gzip=decompress_gzip)

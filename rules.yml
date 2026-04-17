@@ -10,6 +10,9 @@ coord_priority:
 vote_priority:
   - ip2location
   - geo-whois-asn-country
+  - cn-clang
+  - cn-17mon
+  - cn-chnroutes2
   - dbip
   - geolite2
   - ipinfo-country

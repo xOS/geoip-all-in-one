@@ -7,6 +7,7 @@ import sys
 from collections import Counter
 from typing import Optional
 
+import ipaddress
 import yaml
 
 """
@@ -189,6 +190,55 @@ def load_country_csv(filename: str, ipv6: bool = False) -> RangeTable:
     return table
 
 
+def load_country_cidr_txt(
+    filename: str, ipv6: bool = False, default_country: str = 'CN'
+) -> RangeTable:
+    """
+    load CIDR text list and assign one country code for all prefixes.
+    supports simple lists and route-style lines containing a CIDR token.
+    """
+    table = RangeTable()
+    if not os.path.exists(filename):
+        return table
+
+    with open(filename) as f:
+        for line in f:
+            raw = line.strip()
+            if not raw or raw.startswith('#') or raw.startswith('//'):
+                continue
+            if '#' in raw:
+                raw = raw.split('#', 1)[0].strip()
+            if not raw:
+                continue
+
+            try:
+                token = None
+                for part in raw.replace('\t', ' ').split():
+                    candidate = part.strip().rstrip(';').rstrip(',')
+                    if '/' in candidate:
+                        token = candidate
+                        break
+
+                if not token:
+                    continue
+
+                network = ipaddress.ip_network(token, strict=False)
+                if ipv6 and network.version != 6:
+                    continue
+                if not ipv6 and network.version != 4:
+                    continue
+
+                start = int(network.network_address)
+                end = int(network.broadcast_address) + 1
+                table.add(start, end, default_country)
+            except Exception as e:
+                print(f"Error processing line in {filename}: {e}", file=sys.stderr)
+                pass
+
+    table.finalize(os.path.basename(filename))
+    return table
+
+
 def normalize_asn(asn_raw: str) -> str:
     value = asn_raw.strip()
     if not value or value in ('0', 'None', 'NA', 'N/A'):
@@ -212,8 +262,6 @@ def load_iptoasn_tsv(filename: str, ipv6: bool = False) -> RangeTable:
     table = RangeTable()
     if not os.path.exists(filename):
         return table
-
-    import ipaddress
 
     with open(filename) as f:
         for line in f:
@@ -440,10 +488,18 @@ def main() -> None:
     country_sources: dict[str, RangeTable] = {}
     for name, info in sources.get('country', {}).items():
         fmt = info.get('format', 'hex_tsv')
-        ext = 'csv' if fmt == 'decimal_csv' else 'tsv'
+        if fmt == 'decimal_csv':
+            ext = 'csv'
+        elif fmt == 'cidr_txt':
+            ext = 'txt'
+        else:
+            ext = 'tsv'
         filepath = os.path.join(data_dir, f"{name}.{ext}")
         if fmt == 'decimal_csv':
             country_sources[name] = load_country_csv(filepath, ipv6)
+        elif fmt == 'cidr_txt':
+            default_country = info.get('country', 'CN')
+            country_sources[name] = load_country_cidr_txt(filepath, ipv6, default_country)
         else:
             asn_col = info.get('asn_col')
             org_col = info.get('org_col')
