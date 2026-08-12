@@ -4,7 +4,9 @@ Download GeoIP sources defined in sources.yaml
 
 import gzip
 import os
+import shutil
 import sys
+import zipfile
 from datetime import datetime
 
 import requests
@@ -14,6 +16,22 @@ import yaml
 def log(msg):
     """Print timestamped log message."""
     print(f"[{datetime.now().isoformat()}] {msg}", file=sys.stderr)
+
+
+def extract_zip(zip_path, dest_path):
+    """
+    Extract a single item from a zip archive to dest_path
+    Prefers the matching dest_path's extension (for example .csv)
+    """
+    dest_ext = os.path.splitext(dest_path)[1].lower()
+    with zipfile.ZipFile(zip_path) as zf:
+        members = [n for n in zf.namelist() if not n.endswith('/')]
+        if not members:
+            raise ValueError("zip archive is empty")
+        member = next((n for n in members if n.lower().endswith(dest_ext)), members[0])
+        with zf.open(member) as src, open(dest_path, 'wb') as out:
+            shutil.copyfileobj(src, out)
+    log(f"  Extracted: {member} -> {dest_path}")
 
 
 def download_file(url, dest_path, decompress_gzip=False):
@@ -38,9 +56,15 @@ def download_file(url, dest_path, decompress_gzip=False):
             with open(dest_path, 'wb') as f:
                 f.write(data)
         else:
-            with open(dest_path, 'wb') as f:
+            tmp_path = dest_path + '.part'
+            with open(tmp_path, 'wb') as f:
                 for chunk in resp.iter_content(chunk_size=8192):
                     f.write(chunk)
+            if zipfile.is_zipfile(tmp_path):
+                extract_zip(tmp_path, dest_path)
+                os.remove(tmp_path)
+            else:
+                os.replace(tmp_path, dest_path)
 
         log(f"✓ Saved: {dest_path}")
         return 200
@@ -73,7 +97,7 @@ def main():
         for name, info in sources.get(section, {}).items():
             url = info.get(ip_version, '')
             fmt = info.get('format', 'hex_tsv')
-            if fmt == 'decimal_csv':
+            if fmt.endswith('csv'):
                 ext = 'csv'
             elif fmt == 'cidr_txt':
                 ext = 'txt'
